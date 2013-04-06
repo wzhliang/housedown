@@ -3,14 +3,21 @@
 import urllib2
 import pdb
 import re
+import os
+import os.path
 
 from bs4 import BeautifulSoup as Soup
 from pprint import pprint
 
+__mydebug__ = 1
 host = 'http://www.tvsubs.net/'
 
+def trace(msg):
+	if __mydebug__:
+		print msg
+
 def get_soup(url):
-	print "Reading %s" % url
+	trace("Reading %s" % url)
 	page = urllib2.urlopen(url)
 	return Soup(page)
 
@@ -25,10 +32,13 @@ def get_var(line):
 		return (None, None)
 
 def down_zip(url):
-	"url: page address that's nofollow"
+	"""tvsubs.net use a technic where:
+	1. <a href> with nofollow attribute
+	2. JS that sets the current URL to hide actual subtitle URL"""
 	jsvars = {}
 	jsvars['s1'] = 'fil' # this is missing from the actual remote file
 
+	#Following logic is the derived from the actual web page.
 	page = urllib2.urlopen(url)
 	for l in page:
 		name, value = get_var(l)
@@ -36,23 +46,40 @@ def down_zip(url):
 			jsvars[name] = value
 	zip_addr = jsvars['s1'] + jsvars['s2'] + jsvars['s3'] + jsvars['s4']
 	zip_addr = host + zip_addr
-	print zip_addr
 
+	f = urllib2.urlopen(zip_addr)
+
+	trace("Downloading %s " % zip_addr)
+	with open(os.path.basename(zip_addr), "wb") as local_file:
+		local_file.write(f.read())
+
+	f.close()
+	local_file.close()
+
+def find_sub_by_group(url, grp):
+	"""url: page address with sub for a certain episodes
+	grp: the release grp to search for"""
+	soup = get_soup(url)
+
+	for a in soup("a"):
+		if a.text.find(grp) != -1:
+			return a
+
+	return None
+	
 def main():
-	#Root page, with list of all episodes
+	#Root page, with list of all episodes in Season 1
 	x = get_soup(host + 'tvshow-3-1.html').body.find('ul', attrs={'class' : 'list1'})
 
 	for li in x.children:
-		href = li.find_all('a')[0]
-		addr = href.attrs['href']
-		soup = get_soup(host + addr)
-		#pdb.set_trace()
 		# first link is for English, this goes to another page where options are given
-		dl_url = soup.find('a', text='House M. D. S01E01 720p.Web-DL.TjHD').attrs['href']
+		addr = li.find_all('a')[0]['href']
 
-		dl_url = host + dl_url
+		ancr = find_sub_by_group(host + addr, 'TjHD')
+
+		dl_url = host + ancr['href']
 		dl_url2 = get_soup(dl_url).find('a', text='Download subtitles').attrs['href']
-		print "Actual download URL: %s" % ( host + dl_url2)
+		trace("Actual download URL: %s" % ( host + dl_url2))
 
 		down_zip(host + dl_url2)
 
