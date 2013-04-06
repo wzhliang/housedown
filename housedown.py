@@ -1,4 +1,5 @@
 #!/usr/bin/python
+#Script that autoamte download subtitle from tvsubs.net
 
 import urllib2
 import pdb
@@ -10,7 +11,9 @@ from bs4 import BeautifulSoup as Soup
 from pprint import pprint
 
 __mydebug__ = 1
-host = 'http://www.tvsubs.net/'
+host = 'http://www.tvsubs.net'
+root_url = 'tvshow-3-1.html'
+rls_group = 'TjHD'
 
 def trace(msg):
 	if __mydebug__:
@@ -31,57 +34,73 @@ def get_var(line):
 	else:
 		return (None, None)
 
-def down_zip(url):
-	"""tvsubs.net use a technic where:
-	1. <a href> with nofollow attribute
-	2. JS that sets the current URL to hide actual subtitle URL"""
-	jsvars = {}
-	jsvars['s1'] = 'fil' # this is missing from the actual remote file
 
-	#Following logic is the derived from the actual web page.
-	page = urllib2.urlopen(url)
-	for l in page:
-		name, value = get_var(l)
-		if name:
-			jsvars[name] = value
-	zip_addr = jsvars['s1'] + jsvars['s2'] + jsvars['s3'] + jsvars['s4']
-	zip_addr = host + zip_addr
+class SubDownlaoder():
+	def __init__(self, host, root, group):
+		self.host = host # host 
+		self.root = root # root URL for a season
+		self.group = group # release group 
 
-	f = urllib2.urlopen(zip_addr)
+	def __url(self, rel_url):
+		return os.path.join(self.host, rel_url)
 
-	trace("Downloading %s " % zip_addr)
-	with open(os.path.basename(zip_addr), "wb") as local_file:
-		local_file.write(f.read())
+	def down_zip(self, url):
+		"""tvsubs.net use a technic where:
+		1. <a href> with nofollow attribute
+		2. JS that sets the current URL to hide actual subtitle URL"""
+		jsvars = {}
+		jsvars['s1'] = 'fil' # this is missing from the actual remote file
 
-	f.close()
-	local_file.close()
+		#Following logic is the derived from the actual web page.
+		page = urllib2.urlopen(self.__url(url))
+		for l in page:
+			name, value = get_var(l)
+			if name:
+				jsvars[name] = value
+		zip_addr = jsvars['s1'] + jsvars['s2'] + jsvars['s3'] + jsvars['s4']
 
-def find_sub_by_group(url, grp):
-	"""url: page address with sub for a certain episodes
-	grp: the release grp to search for"""
-	soup = get_soup(url)
+		f = urllib2.urlopen(self.__url(zip_addr))
 
-	for a in soup("a"):
-		if a.text.find(grp) != -1:
-			return a
+		trace("Downloading %s " % zip_addr)
+		with open(os.path.basename(zip_addr), "wb") as local_file:
+			local_file.write(f.read())
 
-	return None
-	
+		f.close()
+		local_file.close()
+
+	def find_sub_by_group(self, url, grp):
+		"""url: page address with sub for a certain episodes
+		grp: the release grp to search for"""
+		soup = get_soup(self.__url(url))
+
+		for a in soup("a"):
+			if a.text.find(grp) != -1:
+				return a
+
+		return None
+		
+	def go(self):
+		#Root page, with list of all episodes in the whole Season
+		#Controlled by the format of the page
+		x = get_soup(self.__url(self.root))\
+			.body.find('ul', attrs={'class' : 'list1'})
+
+		for li in x.children:
+			# first link is for English, this goes to another page where options are given
+			addr = li.find_all('a')[0]['href']
+
+			ancr = self.find_sub_by_group(addr, self.group)
+
+			url = get_soup(self.__url(ancr['href']))\
+				.find('a', text='Download subtitles')\
+				.attrs['href']
+
+			self.down_zip(url)
+
+
 def main():
-	#Root page, with list of all episodes in Season 1
-	x = get_soup(host + 'tvshow-3-1.html').body.find('ul', attrs={'class' : 'list1'})
-
-	for li in x.children:
-		# first link is for English, this goes to another page where options are given
-		addr = li.find_all('a')[0]['href']
-
-		ancr = find_sub_by_group(host + addr, 'TjHD')
-
-		dl_url = host + ancr['href']
-		dl_url2 = get_soup(dl_url).find('a', text='Download subtitles').attrs['href']
-		trace("Actual download URL: %s" % ( host + dl_url2))
-
-		down_zip(host + dl_url2)
+	dldr = SubDownlaoder(host, root_url, rls_group)
+	dldr.go()
 
 def test_get_var():
 	lines = [ "var s2= 'es/H';",
