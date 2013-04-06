@@ -87,6 +87,8 @@ class SubDownlaoder():
 
 		for li in x.children:
 			# first link is for English, this goes to another page where options are given
+			if li.text == "": # after the last episode there is a empty li
+				break
 			addr = li.find_all('a')[0]['href']
 
 			ancr = self.find_sub_by_group(addr, self.group)
