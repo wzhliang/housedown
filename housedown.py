@@ -5,19 +5,25 @@ import urllib2
 import pdb
 import re
 import os
+import sys
 import os.path
+import getopt
 
 from bs4 import BeautifulSoup as Soup
 from pprint import pprint
 
 __mydebug__ = 1
 host = 'http://www.tvsubs.net'
-root_url = 'tvshow-3-1.html'
 rls_group = 'TjHD'
+_season = 1
 
 def trace(msg):
 	if __mydebug__:
 		print msg
+
+def get_season_root(season):
+	root_url = 'tvshow-3-%d.html'
+	return root_url % season
 
 def get_soup(url):
 	trace("Reading %s" % url)
@@ -99,9 +105,8 @@ class SubDownlaoder():
 
 			self.down_zip(url)
 
-
 def main():
-	dldr = SubDownlaoder(host, root_url, rls_group)
+	dldr = SubDownlaoder(host, get_season_root(_season), rls_group)
 	dldr.go()
 
 def test_get_var():
@@ -113,4 +118,8 @@ def test_get_var():
 		pprint(get_var(l))
 
 if __name__ == '__main__':
+	options, reminder = getopt.getopt(sys.argv[1:], "s:", ['season='])
+	for opt, arg in options:
+		if opt in ('-s', '--season'):
+			_season = int(arg)
 	main()
