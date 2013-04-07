@@ -103,7 +103,7 @@ class SubDownlaoder():
 
 			if not ancr:
 				print 'Unable to find group %s in %s' % (self.group, self.__url(addr))
-				return
+				continue
 
 			url = get_soup(self.__url(ancr['href']))\
 				.find('a', text='Download subtitles')\
