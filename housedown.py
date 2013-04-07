@@ -1,5 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #Script that autoamte download subtitle from tvsubs.net
+#Requires: beautiful soup on lxml or html5lib
 
 import urllib2
 import pdb
@@ -16,6 +17,7 @@ __mydebug__ = 1
 host = 'http://www.tvsubs.net'
 rls_group = 'TjHD'
 _season = 1
+_group = 'TjHD'
 
 def trace(msg):
 	if __mydebug__:
@@ -99,6 +101,10 @@ class SubDownlaoder():
 
 			ancr = self.find_sub_by_group(addr, self.group)
 
+			if not ancr:
+				print 'Unable to find group %s in %s' % (self.group, self.__url(addr))
+				return
+
 			url = get_soup(self.__url(ancr['href']))\
 				.find('a', text='Download subtitles')\
 				.attrs['href']
@@ -106,7 +112,7 @@ class SubDownlaoder():
 			self.down_zip(url)
 
 def main():
-	dldr = SubDownlaoder(host, get_season_root(_season), rls_group)
+	dldr = SubDownlaoder(host, get_season_root(_season), _group)
 	dldr.go()
 
 def test_get_var():
@@ -118,8 +124,10 @@ def test_get_var():
 		pprint(get_var(l))
 
 if __name__ == '__main__':
-	options, reminder = getopt.getopt(sys.argv[1:], "s:", ['season='])
+	options, reminder = getopt.getopt(sys.argv[1:], "s:g:", ['season=', 'group='])
 	for opt, arg in options:
 		if opt in ('-s', '--season'):
 			_season = int(arg)
+		elif opt in ('-g', '--group'):
+			_group = arg
 	main()
